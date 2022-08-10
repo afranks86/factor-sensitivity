@@ -1,0 +1,176 @@
+---
+title: "Simulation with Null Controls"
+author: "Alex Franks"
+date: "9/27/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(colorspace)
+library(tidybayes)
+library(rstan)
+source("../utility_functions.R")
+```
+
+## Generate simulated data
+
+- $q=10$ outcomes, $m=2$ latent confounders.  Confounding explains 50\% of the treatment variance
+- Make a heat map of gamma (paper Figure ***)
+
+```{r}
+# model #
+R2 <- 0.5
+q <- 10
+m <- 2
+sigma2_t <- 1
+R2 <- 0.5
+set.seed(123)
+B <- rstiefel::rustiefel(m, 1) * sqrt(sigma2_t * R2)
+B[2] <- -B[2]
+sigma2_y <- diag(q)
+
+n = 1000
+
+# t <- rbinom(n=n, size=1, prob=p_t)
+t <- rnorm(n, 0, 1)
+
+gamma0 <- matrix(0, nrow=q, ncol=m)
+gamma0[1:(q/3), 1] <- seq(1, 2, length.out=floor(q/3)) / 2
+gamma0[floor(q/3+1):floor(2*q/3), 2] <- -1*seq(1, 2, length.out=floor(q/3)) / 2
+gamma0[floor(2*q/3+1):q, ] <- cbind(1*seq(1, 2, length.out=ceiling(q/3)), 1*seq(1, 2, length.out=ceiling(q/3))) / 3
+
+u <- sapply(t, function(ti) {
+    mvtnorm::rmvnorm(1, mean=B / sigma2_t * ti, sigma=diag(1, m) - B %*% t(B) / sigma2_t)
+}) %>% t
+
+sigma_u_t_neg_half <- chol(solve(diag(m) - B %*% t(B) / sigma2_t))
+
+mu_yt <- c(0, 1, 1, rep(1, q-3))  #rnorm(q)
+
+
+y = as.matrix(t) %*% mu_yt + as.matrix(u) %*% sigma_u_t_neg_half %*% t(gamma0) + mvtnorm::rmvnorm(n, mean = rep(0, q), sig=sigma2_y)
+
+colnames(y) = paste0("y", 1:q)
+
+## tau_naive <- colMeans(y[t==1, ]) - colMeans(y[t==0, ])
+tau_naive <- coef(lm(y ~ t))["t", ]
+
+tau_naive
+tau_naive - t(B) %*% sigma_u_t_neg_half %*% t(gamma0) /sigma2_t
+data_list <- list(K=ncol(y), J=1, N=nrow(y), M=2, x=matrix(t, ncol=1), y=scale(y))
+sm <- stan_model("../stan/multivariate_regression.stan")
+
+
+
+
+tibble(expand.grid(outcome=1:10, col=1:2)) %>% 
+  mutate(Value = as.numeric(gamma0)) %>%  
+  ggplot(aes(x=col, y=forcats::fct_rev(as.factor(outcome)))) + 
+  geom_tile(aes(fill=Value), col="black") + 
+  geom_text(aes(label=round(Value, 2)), col="black") + 
+  colorspace::scale_fill_continuous_diverging() + theme_bw() +
+  theme(panel.grid = element_blank(), 
+        panel.border = element_blank(),
+        axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        # axis.text.y=element_blank(),
+        axis.ticks.y=element_blank(),
+        plot.title = element_text(hjust = 0.5)) + 
+  xlab("") + ylab("") + ggtitle(expression(Gamma)) +
+  theme(text = element_text(size=20))
+ggsave("gamma_plot.pdf", height=5, width=3)
+
+```
+## Inference
+
+```{r}
+
+## By default, don't run sampler
+run_sampler <- FALSE
+
+
+if(run_sampler) {
+ stan_results <- sampling(sm, data_list)
+ saveRDS(stan_results, file="simulation_1000_2_gauss.RDS")
+} else {
+  stan_results <- readRDS("simulation_1000_2_gauss.RDS")
+}
+
+naive_estimates <- stan_results %>% spread_draws(beta[K, J]) %>% 
+  group_by(J, K) %>% 
+  summarize(q025=quantile(beta, 0.025), 
+            q975=quantile(beta, 0.975)) %>%
+  mutate(sig = sign(q025*q975)==1) %>% 
+  mutate(feature = colnames(y)) %>% 
+  filter(J==1) %>% 
+  arrange(desc(q025)) %>% relocate(feature, q025, q975)
+naive_estimates
+
+
+sdy <- attr(scale(y), "scaled:scale")
+muy <- attr(scale(y), "scaled:center")
+
+stan_results %>% spread_draws(B[K, M], lambda[K], beta[K, J]) %>% 
+  group_by(.draw) %>% 
+  nest() -> nest_df
+
+beta_w_norm <- nest_df %>% mutate(data = purrr::map(data, function(d) get_bounds(d, data_list))) %>%
+  unnest(cols = c(data))
+
+
+tr <- t
+
+NC_index <- c(1)
+beta_w_norm1 <- nest_df %>%
+  mutate(data = purrr::map(data, function(d) 
+    cal_tau_cali_wNC(d, R2_no_nc=0.5, NC_index=NC_index, data_list=data_list,
+                     treatment_index = 1, 
+                     marginal_sensitivity_param=FALSE,
+                     sdy=sdy))) %>%
+  unnest(cols = c(data))
+
+orig_color = "#023FA5"
+orig_color = "black"
+nc_color = "#CC1C2F"
+effect_intervals <- beta_w_norm1 %>% 
+  group_by(K) %>% summarize(lower_naive=quantile(Naive, 0.025, na.rm=TRUE),
+                            upper_naive=quantile(Naive, 0.975, na.rm=TRUE),
+                            lower_init=quantile(R2_lwr, 0.025, na.rm=TRUE),
+                            upper_init=quantile(R2_upr, 0.975, na.rm=TRUE),
+                            lower_nc=quantile(R2_nc_lwr, 0.025, na.rm=TRUE),
+                            upper_nc=quantile(R2_nc_upr, 0.975, na.rm=TRUE),
+                            lower_rv_init = quantile(abs(rv_init), 0.05, na.rm=TRUE),
+                            lower_rv_nc = quantile(abs(rv_nc), 0.025, na.rm=TRUE)) %>% 
+  mutate(Metabolite = as.character(1:10))
+
+nc_plot_index <- which(effect_intervals$K %in% c(1))  
+
+nc_bayes_plot <- effect_intervals %>%
+  ggplot() + 
+  geom_segment(aes(x=forcats::fct_inorder(Metabolite), xend=forcats::fct_inorder(Metabolite), 
+                              y=lower_init, yend=upper_init, col='nuc50'), alpha=0.5, size=2) + 
+  geom_segment(aes(x=forcats::fct_inorder(Metabolite), xend=forcats::fct_inorder(Metabolite), 
+                   y=lower_nc, yend=upper_nc, col='null'), 
+               size=3, alpha=0.8) +  
+  geom_text(aes(x=forcats::fct_inorder(Metabolite), y = rep(2, 10), 
+                label=ifelse(sign(lower_naive) == sign(upper_naive), round(abs(lower_rv_init), 2), "X")), fontface="bold") + 
+  geom_text(aes(x=forcats::fct_inorder(Metabolite), y = rep(2.25, 10), 
+              label=ifelse(sign(lower_nc) == sign(upper_nc), round(abs(lower_rv_nc), 2), "X")), col=nc_color, fontface="bold") + 
+  geom_point(aes(x=nc_plot_index, y=rep(0, length(nc_plot_index))), size=3, colour=nc_color, alpha=0.5, data=tibble()) +
+  theme_bw(base_size=16) + 
+  xlab("Outcome") + ylab("Treatment Effect") +
+  geom_hline(yintercept=0, linetype="dashed") +
+  geom_segment(x=1.5, xend=11, y=1, yend=1, linetype = "dashed", col="blue") +
+  geom_segment(x=0, xend=1.5, y=0, yend=0, linetype = "dashed", col="blue") +
+  scale_color_manual(name="", labels = c("Original", expression(Y[1]~" is null")),
+                     values=c(nuc50="blue", 'null'=nc_color)) +
+  ggtitle( expression("Posterior Credible Regions ("~R[paste(T,'~',U)]^2<=~"50%)"))
+
+nc_bayes_plot
+ggsave(nc_bayes_plot, filename="nc_sim_plot_w_uncertainty.pdf", width=8, height=4)
+```
+
+
