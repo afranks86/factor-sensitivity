@@ -1,7 +1,7 @@
 ---
 title: "Simulation with Null Controls"
 author: "Alex Franks"
-date: "9/27/2021"
+date: 
 output: html_document
 ---
 
@@ -10,7 +10,8 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(colorspace)
 library(tidybayes)
-library(rstan)
+library(cmdstanr)
+options(mc.cores=4)
 source("../utility_functions.R")
 ```
 
@@ -41,13 +42,16 @@ gamma0[1:(q/3), 1] <- seq(1, 2, length.out=floor(q/3)) / 2
 gamma0[floor(q/3+1):floor(2*q/3), 2] <- -1*seq(1, 2, length.out=floor(q/3)) / 2
 gamma0[floor(2*q/3+1):q, ] <- cbind(1*seq(1, 2, length.out=ceiling(q/3)), 1*seq(1, 2, length.out=ceiling(q/3))) / 3
 
+gamma0[2, ] <- -1*gamma0[2, ]
+gamma0[10, ] <- -1*gamma0[10, ]
+
 u <- sapply(t, function(ti) {
     mvtnorm::rmvnorm(1, mean=B / sigma2_t * ti, sigma=diag(1, m) - B %*% t(B) / sigma2_t)
 }) %>% t
 
 sigma_u_t_neg_half <- chol(solve(diag(m) - B %*% t(B) / sigma2_t))
 
-mu_yt <- c(0, 1, 1, rep(1, q-3))  #rnorm(q)
+mu_yt <- c(0, 0, 1, rep(1, q-4), 0)  #rnorm(q)
 
 
 y = as.matrix(t) %*% mu_yt + as.matrix(u) %*% sigma_u_t_neg_half %*% t(gamma0) + mvtnorm::rmvnorm(n, mean = rep(0, q), sig=sigma2_y)
@@ -60,7 +64,8 @@ tau_naive <- coef(lm(y ~ t))["t", ]
 tau_naive
 tau_naive - t(B) %*% sigma_u_t_neg_half %*% t(gamma0) /sigma2_t
 data_list <- list(K=ncol(y), J=1, N=nrow(y), M=2, x=matrix(t, ncol=1), y=scale(y))
-sm <- stan_model("../stan/multivariate_regression.stan")
+
+sm <- cmdstanr::cmdstan_model("../stan/multivariate_regression.stan")
 
 
 
@@ -84,19 +89,20 @@ tibble(expand.grid(outcome=1:10, col=1:2)) %>%
 ggsave("gamma_plot.pdf", height=5, width=3)
 
 ```
+
 ## Inference
 
 ```{r}
 
 ## By default, don't run sampler
-run_sampler <- FALSE
+run_sampler <- TRUE
 
 
 if(run_sampler) {
- stan_results <- sampling(sm, data_list)
- saveRDS(stan_results, file="simulation_1000_2_gauss.RDS")
+ stan_results <- stan_results <- sm$sample(data_list)
+ saveRDS(stan_results, file="simulation_1000_2_gauss_2.RDS")
 } else {
-  stan_results <- readRDS("simulation_1000_2_gauss.RDS")
+  stan_results <- readRDS("simulation_1000_2_gauss_2.RDS")
 }
 
 naive_estimates <- stan_results %>% spread_draws(beta[K, J]) %>% 
@@ -113,29 +119,20 @@ naive_estimates
 sdy <- attr(scale(y), "scaled:scale")
 muy <- attr(scale(y), "scaled:center")
 
-stan_results %>% spread_draws(B[K, M], lambda[K], beta[K, J]) %>% 
-  group_by(.draw) %>% 
-  nest() -> nest_df
 
-beta_w_norm <- nest_df %>% mutate(data = purrr::map(data, function(d) get_bounds(d, data_list))) %>%
-  unnest(cols = c(data))
-
-
+NC_index <- 1
+R2 <- 0.5
 tr <- t
+beta_w_norm <- get_beta_w_norm(stan_results, data_list, NC_index=NC_index, 
+                               marginal_sensitivity_param = FALSE, 
+                               R2_no_nc=R2, R2_nc = R2, sdy=sdy)
 
-NC_index <- c(1)
-beta_w_norm1 <- nest_df %>%
-  mutate(data = purrr::map(data, function(d) 
-    cal_tau_cali_wNC(d, R2_no_nc=0.5, NC_index=NC_index, data_list=data_list,
-                     treatment_index = 1, 
-                     marginal_sensitivity_param=FALSE,
-                     sdy=sdy))) %>%
-  unnest(cols = c(data))
+
 
 orig_color = "#023FA5"
 orig_color = "black"
 nc_color = "#CC1C2F"
-effect_intervals <- beta_w_norm1 %>% 
+effect_intervals <- beta_w_norm %>% 
   group_by(K) %>% summarize(lower_naive=quantile(Naive, 0.025, na.rm=TRUE),
                             upper_naive=quantile(Naive, 0.975, na.rm=TRUE),
                             lower_init=quantile(R2_lwr, 0.025, na.rm=TRUE),
@@ -143,34 +140,60 @@ effect_intervals <- beta_w_norm1 %>%
                             lower_nc=quantile(R2_nc_lwr, 0.025, na.rm=TRUE),
                             upper_nc=quantile(R2_nc_upr, 0.975, na.rm=TRUE),
                             lower_rv_init = quantile(abs(rv_init), 0.05, na.rm=TRUE),
-                            lower_rv_nc = quantile(abs(rv_nc), 0.025, na.rm=TRUE)) %>% 
-  mutate(Metabolite = as.character(1:10))
+                            lower_rv_nc = quantile(abs(rv_nc), 0.05, na.rm=TRUE), 
+                            lower_rv_nc_cond = quantile(abs(rv_nc_cond), 0.05, na.rm=TRUE),                             
+                            lower_rv_ch = quantile(abs(rv_ch), 0.05, na.rm=TRUE),
+                            lower_xrv = quantile(abs(xrv), 0.05, na.rm=TRUE)) %>% 
+  mutate(K = as.character(1:10))
 
 nc_plot_index <- which(effect_intervals$K %in% c(1))  
 
+rv_nc <- round(abs(effect_intervals$lower_rv_nc), 2)
+rv_nc_cond <- format(rv_nc-rv_nc[1], nsmall=2)
+rv_nc <- format(rv_nc, nsmall=2)
+
+text_diff <- c(0, 0.35, 0.6, 0.85)
+text_loc <- 2.1 + text_diff
+
 nc_bayes_plot <- effect_intervals %>%
   ggplot() + 
-  geom_segment(aes(x=forcats::fct_inorder(Metabolite), xend=forcats::fct_inorder(Metabolite), 
+  geom_segment(aes(x=forcats::fct_inorder(K), xend=forcats::fct_inorder(K), 
                               y=lower_init, yend=upper_init, col='nuc50'), alpha=0.5, size=2) + 
-  geom_segment(aes(x=forcats::fct_inorder(Metabolite), xend=forcats::fct_inorder(Metabolite), 
+  geom_segment(aes(x=forcats::fct_inorder(K), xend=forcats::fct_inorder(K), 
                    y=lower_nc, yend=upper_nc, col='null'), 
                size=3, alpha=0.8) +  
-  geom_text(aes(x=forcats::fct_inorder(Metabolite), y = rep(2, 10), 
-                label=ifelse(sign(lower_naive) == sign(upper_naive), round(abs(lower_rv_init), 2), "X")), fontface="bold") + 
-  geom_text(aes(x=forcats::fct_inorder(Metabolite), y = rep(2.25, 10), 
-              label=ifelse(sign(lower_nc) == sign(upper_nc), round(abs(lower_rv_nc), 2), "X")), col=nc_color, fontface="bold") + 
+  ## CH RVS  
+  geom_text(aes(x=forcats::fct_inorder(K), y = rep(text_loc[4], 10), 
+                label=ifelse(sign(lower_naive) == sign(upper_naive), format(round(abs(lower_rv_ch), 2), nsmall=2), "X")), fontface="bold") + 
+  ## XRVS
+  geom_text(aes(x=forcats::fct_inorder(K), y = rep(text_loc[3], 10), 
+                label=ifelse(sign(lower_naive) == sign(upper_naive), format(round(abs(lower_xrv), 2), nsmall=2), "X")), fontface="bold") + 
+  ## Factor RV  
+  geom_text(aes(x=forcats::fct_inorder(K), y = rep(text_loc[2], 10), 
+                label=ifelse(sign(lower_naive) == sign(upper_naive), format(round(abs(lower_rv_init), 2), nsmall=2), "X")), fontface="bold") + 
+  ## Factor + NC RV
+  geom_text(aes(x=forcats::fct_inorder(K), y = rep(text_loc[1], 10), 
+              label=rv_nc_cond), fontface="bold", nudge_x=0, nudge_y=.08, size=3) + 
+  geom_text(aes(x=forcats::fct_inorder(K), y = rep(text_loc[1], 10), 
+            label=rv_nc), fontface="bold", nudge_x=0, nudge_y=-.16, size=3) + 
+  geom_segment(aes(x=as.numeric(K)-.25, xend=as.numeric(K)+.25, y=text_loc[1]-.04, yend=text_loc[1]-.04)) + 
+  
+    geom_text(data=tibble(), aes(label=c(as.character(expression(RV["c=1"]^Gamma)), 
+                                       as.character(expression(RV^Gamma)), "XRV", 
+                                       as.character(expression(RV^1))), x=rep(-.2, 4), y=text_loc), 
+            fontface="bold", hjust=0, col="dark blue", parse=TRUE) +
   geom_point(aes(x=nc_plot_index, y=rep(0, length(nc_plot_index))), size=3, colour=nc_color, alpha=0.5, data=tibble()) +
   theme_bw(base_size=16) + 
   xlab("Outcome") + ylab("Treatment Effect") +
   geom_hline(yintercept=0, linetype="dashed") +
-  geom_segment(x=1.5, xend=11, y=1, yend=1, linetype = "dashed", col="blue") +
-  geom_segment(x=0, xend=1.5, y=0, yend=0, linetype = "dashed", col="blue") +
+  geom_segment(x=2.5, xend=9.5, y=1, yend=1, linetype = "dashed", col="blue") +
+  geom_segment(x=0, xend=2.5, y=0, yend=0, linetype = "dashed", col="blue") +
+  geom_segment(x=9.5, xend=10.5, y=0, yend=0, linetype = "dashed", col="blue") +
   scale_color_manual(name="", labels = c("Original", expression(Y[1]~" is null")),
                      values=c(nuc50="blue", 'null'=nc_color)) +
-  ggtitle( expression("Posterior Credible Regions ("~R[paste(T,'~',U)]^2<=~"50%)"))
-
+  ggtitle( expression("Posterior Credible Regions ("~R[paste(T,'~',U)]^2<=~"50%)")) + expand_limits(x=-.25)
 nc_bayes_plot
-ggsave(nc_bayes_plot, filename="nc_sim_plot_w_uncertainty.pdf", width=8, height=4)
+ggsave(nc_bayes_plot, filename="nc_sim_plot_w_uncertainty3.pdf", width=8, height=4) 
 ```
 
 
