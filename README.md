@@ -1,2 +1,6 @@
 # factor-sensitivity
-Code from "Sensitivity to Unobserved Confounding in Studies with Factor-structured Outcomes"
+Code from the paper "Sensitivity to Unobserved Confounding in Studies with Factor-structured Outcomes"
+Arxiv preprint: https://arxiv.org/abs/2208.06552
+
+- Code for the plots from Section 4 is in `simulation`
+- Code for the plots from Section 6 is in `NHANES_analysis`
