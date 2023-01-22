@@ -279,7 +279,7 @@ make_interval_plot <- function(effect_intervals, nc_plot_index=1, title="",
     geom_text(aes(x=forcats::fct_inorder(Metabolite), y = rep(1.4, 10),
               label=ifelse(sign(lower_nc) == sign(upper_nc), "/", "X")), col=nc_color, fontface="bold") +
     
-    geom_text(data=tibble(), aes(label=c(as.character(expression(RV["NC"]^Gamma)), as.character(expression(RV^Gamma)), "XRV", as.character(expression(RV^1))), 
+    geom_text(data=tibble(), aes(label=c(as.character(expression(RV["c=2"]^Gamma)), as.character(expression(RV^Gamma)), "XRV", as.character(expression(RV^1))), 
                                  x=rep(-.2, 4), y=seq(1.4, 2, by=0.2)), 
               fontface="bold", hjust=0, col="dark blue", parse=TRUE) +
     geom_point(aes(x=nc_plot_index, y=rep(0, length(nc_plot_index))), size=3, colour=nc_color, alpha=0.5, data=tibble()) +
