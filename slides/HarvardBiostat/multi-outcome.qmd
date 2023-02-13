@@ -1,0 +1,647 @@
+---
+title: "Sensitivity to Unobserved Confounding in Studies with Factor-structured Outcomes"
+author: "Alexander Franks"
+date: "Februay 13, 2023"
+format: 
+  revealjs:
+    slide-number: true
+    theme: [default, ucsb.scss]
+bibliography: references.bib
+title-slide-attributes: 
+  data-background-image: 2-color-seal.gif
+  data-background-size: 20%
+  data-background-position: 80% 60%
+---
+
+\newcommand{\te}{\tau}
+\newcommand{\teNaive}{\check{\tau}}
+\newcommand{\teNull}{\tau_{\mathcal{C}}}
+\newcommand{\teNaiveNull}{\check{\tau}_{\mathcal{C}}}
+\newcommand{\teNaivej}{\check{\tau}_j}
+\newcommand{\rsqtx}{R^2_{T \sim U \mid X}}
+\newcommand{\rsqt}{R^2_{T \sim U}}
+\newcommand{\rsqytx}{R^2_{a'Y \sim U \mid T,X}}
+
+
+```{css, echo=FALSE}
+.title {
+  font-size: 10px;
+}
+```
+
+```{r}
+library(tidyverse)
+```
+
+### Causal Inference From Observational Data
+
+- Consider a treatment $T$ and outcome $Y$
+
+- Interested in the population average treatment effect (PATE) of $T$ on $Y$:
+$$E[Y | do(T=t)] - E[Y | do(T=t')]$$ 
+
+. . .
+
+- In general, the PATE is not the same as $$E[Y | T=t] - E[Y | T=t']$$
+
+## Confounders
+
+<center>![](confounder){width="50%"}</center>
+
+<center>Need to control for $U$ to consistently estimate the causal effect</center>
+
+## Confounding bias
+
+- Observed data regression of $T$ on $Y$ fails because the distribution of $U$ varies in the two treatment arms
+
+. . . 
+
+- We try to condition on as many *observed* confounders as possible to mitigate potential confounding bias 
+
+. . . 
+
+- Commonly assumed that there are "no unobserved confounders" (NUC) but this is unverifiable
+
+. . .
+
+- Sensitivity analysis is a tool for assessing the impacts of violations of this assumption
+
+## A Motivating Example
+
+<center>![](wine_benefits)</center>
+
+## A Motivating Example
+
+<center>![](alc_harm)</center>
+
+
+--- 
+
+### The Effects of Light Alcohol Consumption
+
+- Observational data from the National Health and Nutrition Examination Study (NHANES) on alcohol consumption. 
+
+
+
+- Light alcohol consumption is positively correlated with blood levels of HDL ("good cholesterol") 
+
+. . .
+
+- Define "light alcohol consumption'' as 1-2 alcoholic beverages per day 
+
+- Non-drinkers: self-reported drinking of one drink a week or less 
+
+- Control for age, gender and indicator for educational attainment
+
+## HDL and alcohol consumption
+
+```{r}
+X <- read_csv("NHANES_predictors.csv") %>% as.matrix
+Y <- read_csv("NHANES_outcomes.csv") %>% as.matrix 
+Y <- apply(Y, 2, function(x) x/sd(x))
+drinking <- X[, 1]
+X <- X[, -1]
+```
+
+```{r, echo=TRUE}
+summary(lm(Y[, "HDL"] ~ drinking + X))
+```
+
+. . .
+
+<br>
+
+<center>What must be true for this correlation to be non-causal?</center>
+
+---
+
+### Blood mercury and alcohol consumption
+
+```{r, echo=TRUE}
+summary(lm(Y[, "Methylmercury"] ~ drinking + X))
+```
+
+. . .
+
+<br>
+
+<center>But... no plausible causal mechanism in this case</center>
+
+## Residual Correlation
+
+```{r, echo=TRUE}
+#| code-line-numbers: "|4"
+#| output-location: fragment
+hdl_fit <- lm(Y[, "HDL"] ~ drinking + X)
+mercury_fit <- lm(Y[, "Methylmercury"] ~ drinking + X)
+
+cor.test(hdl_fit$residuals, mercury_fit$residuals)
+
+```
+
+. . . 
+
+<br>
+Residual correlation might be indicative of confounding bias
+
+## Sensitivity Analysis
+
+- NUC unlikely to hold exactly.  What then?
+
+- Calibrate assumptions about confounding to explore range of causal effects that are plausible
+
+- Robustness: quantify how "strong" confounding has to be to nullify causal effect estimates
+
+## Multi-outcome Sensitivity Analysis
+
+- Can prior knowledge in the multi-outcome setting be leveraged to strengthen causal conclusions?
+
+. . .
+
+- What does residual correlation in multi-outcome models mean for potential for confounding?
+
+. . .
+
+- How do results change when we assume a priori that certain outcomes cannot be effected by treatments?
+  
+  + Null control outcomes (e.g. alcohol consumption should not increase mercury levels)
+
+## Standard Assumptions
+
+::: {.callout-caution}
+## Assumption (Latent Ignorability)
+U and X block all backdoor paths between T and Y [@pearl2009causality]
+:::
+
+::: {.callout-caution }
+## Assumption (Latent positivity)
+f(T = t | U = u, X = x) > 0 for all u and x
+:::
+
+::: {.callout-caution}
+## Assumption (SUTVA)
+There are no hidden versions of the treatment and there is no
+interference between units
+:::
+
+
+## Single-outcome Sensitivity Analysis
+
+:::{.callout-note icon=false}
+## Result [@cinelli2020making]
+Assume the outcome is linear in the treatment and confounders (no interactions). Then the squared omitted variable bias for the PATE is
+$$\text{Bias}_{t_1,t_2}^2 
+        \, \leq \, 
+        \frac{(t_1-t_2)^2}{\sigma_{t\mid x}^2} \left(\frac{R^2_{T\sim U|X}}{1 - R^2_{T\sim U|X}}
+        \right)R^2_{Y \sim U | T, X}$$
+:::
+
+. . .
+
+- $R^2_{T\sim U|X}$: partial fraction of treatment variance explained by confounders (given observed covariates)
+
+. . .
+
+- $R^2_{Y\sim U|T,X}$: partial fraction of outcome variance explained by confounders (given observed covariates and treatment)
+
+## Robustness
+
+- How big do $R^2_{T\sim U |X}$ and $R^2_{Y \sim U | T, X}$ need to be to nullify the effect?
+
+. . . 
+
+- $RV^1$ smallest value of $R^2_{T\sim U |X} = R^2_{Y \sim U | T, X}$ needed to nullify effect [@cinelli2020making]
+
+. . . 
+
+- $XRV$ smallest value of $R^2_{T\sim U |X}$ assuming $R^2_{Y \sim U | T, X}=1$ needed to nullify effect [@cinelli2022iv]
+
+## Calibrating Sensitivity Parameters
+
+- What values of $R^2_{Y\sim U|T, X}$ and $R^2_{T \sim U | X}$ might be reasonable?
+
+- Can use observed covariates to generate benchmark values:
+
+  + Compute $R^2_{T \sim X_{j} | X_{-j}}$ for all covariate $X_j$
+
+  + Compute $R^2_{Y \sim X_{j} | X_{-j}, T}$ for all covariate $X_j$
+  
+- Use domain knowledge to reason about most important confounders
+
+
+## Sensitivity of HDL Cholesterol Effect
+
+```{r}
+#| fig-align: center
+#| fig-width: 10
+library(sensemakr)
+hdl_sensitivity <- sensemakr(model = hdl_fit, 
+                                 treatment = "drinking",
+                                 benchmark_covariates = "Xage",
+                                 kd = c(5, 10),
+                                 ky = c(5, 10), 
+                                 q = 1,
+                                 alpha = 0.05, 
+                                 reduce = TRUE)
+plot(hdl_sensitivity)
+```
+
+
+From the ``sensemakr`` documentation [@cinelli2020sensemakr]
+
+
+
+
+## Models with factor-structured residuals
+
+<br>
+Assume the **observed data** mean and covariance can be expressed as follows:
+$$\begin{align}
+    E[Y \mid T = t, X=x] &= \check g(t, x)\\
+    Cov(Y \mid T = t, X = x) &= \Gamma\Gamma' + \Lambda,
+\end{align}$$
+
+- $\Gamma$ are factor loading matrices, $\Lambda$ is diagonal
+
+. . .
+
+- $\check g(T=t, X) - \check g(T=t', X)$ is only the PATE when there is NUC
+
+## A Structural Equation Model 
+
+- $U$ (m-vector) and $X$ are possible causes for $T$ (scalar) and $Y$ (q-vector)
+
+- $X$ are observed but $U$ are not.
+
+$$\begin{align}
+& U = \epsilon_U \label{eqn:u}\\
+&T = f_{\epsilon}(X, U) \label{eqn:treatment_general,multi-y}\\
+&Y = g(T,X) + \Gamma\Sigma_{u|t,x}^{-1/2}U + \epsilon_{y}, \label{eqn:epsilon_y}
+\end{align}$$
+
+. . .
+
+- This SEM implies the factor structured residuals, $Cov(Y|T, X) = \Gamma\Gamma' + \Lambda$
+
+
+
+
+## A Structural Equation Model
+
+$$\begin{align}
+&U = \epsilon_U\\
+&T = f_\epsilon(X,U)\\
+&Y = g(T, X) + \Gamma\Sigma_{u|t,x}^{-1/2}U + \epsilon_{y}
+\end{align}$$
+
+- Confounding bias is $\Gamma\Sigma_{u|t,x}^{-1/2}\mu_{u \mid t,x}$
+
+- $\mu_{u \mid t,x}$ and $\Sigma_{u|t,x}$ are the conditional mean and covariance of the unmeasured confounders
+  + User specified sensitivity parameters
+
+
+## A Sensitivity Specification {.smaller}
+
+- Interpretable specification for $\mu_{u \mid t,x}$ and $\Sigma_{u|t,x}$ parameterized by a single $m$-vector, $\rho$:
+
+\begin{align}
+\mu_{u\mid t,x} &= \frac{\rho}{\sigma_{t \mid x}^{2}}\left(t-\mu_{t\mid x}\right) \label{eqn:conditional_u_mean}, \\
+\Sigma_{u \mid t,x} &= I_m-\frac{\rho \rho^{\prime}}{\sigma_{t\mid x}^{2}} \label{eqn:conditional_u_cov},
+\end{align}
+
+- $\rho$ is the partial correlation vector between $T$ and $U$
+
+- $0 \leq R^2_{T \sim U |X}:= \frac{||\rho||^2_2}{\sigma^2_{t\mid x}} < 1$ is the squared norm of the partial correlation between T and U given $X$
+
+
+## Multi-Outcome Assumptions
+::: {.callout-caution}
+## Assumption (Homoscedasticity)
+$Cov(Y |T = t, X = x)$ is invariant to t and x. Implies factor loadings, $\Gamma$, are invariant to $t$ and $x$
+:::
+
+. . . 
+
+::: {.callout-caution }
+## Assumption (Factor confounding)
+The factor loadings, $\Gamma$, are identifiable (up to rotation) and reflect all potential confounders. [@anderson1956statistical]
+:::
+
+
+To identify factor loadings, $\Gamma$, $(q-m)^2-q-m\geq0$ and each confounder must influence at least three outcomes
+
+## Bounding the Omitted Variable Bias
+
+::: {.callout-note icon=false}
+## Theorem (Bounding the bias for outcome $Y_j$)
+Given the structural equation model, sensitivity specification and given assumptions, the squared omitted variable bias for the PATE of outcome $Y_j$ is bounded by
+$$\text{Bias}_{j}^2 
+        \, \leq \, 
+        \frac{(t_1-t_2)^2}{\sigma_{t\mid x}^2} \left(\frac{R^2_{T\sim U|X}}{1 - R^2_{T\sim U|X}}
+        \right)\parallel \Gamma_j\parallel_2^2$$
+:::
+
+- The bound on the bias for outcome $j$ is proportional to the norm of the factor loadings for that outcome
+
+- A single sensitivity parameter, $\rsqtx$, shared across all outcomes
+
+## Bounding the Omitted Variable Bias {visibility="uncounted"}
+
+::: {.callout-note icon=false}
+## Theorem (Bounding the bias for outcome $Y_j$)
+Given the structural equation model, sensitivity specification and given assumptions, the squared omitted variable bias for the PATE of outcome $Y_j$ is bounded by
+$$\text{Bias}_{j}^2 
+        \, \leq \, 
+        \frac{(t_1-t_2)^2}{\sigma_{t\mid x}^2} \left(\frac{R^2_{T\sim U|X}}{1 - R^2_{T\sim U|X}}
+        \right)\color{#C43424}{ \parallel \Gamma_j\parallel_2^2}$$
+:::
+
+- <span style="color:#C43424">The bound on the bias for outcome $j$ is proportional to the norm of the factor loadings for that outcome</span>
+
+- A single sensitivity parameter, $\rsqtx$, shared across all outcomes
+
+## Bounding the Omitted Variable Bias {visibility="uncounted"}
+
+::: {.callout-note icon=false}
+## Theorem (Bounding the bias for outcome $Y_j$)
+Given the structural equation model, sensitivity specification and given assumptions, the squared omitted variable bias for the PATE of outcome $Y_j$ is bounded by
+$$\text{Bias}_{j}^2 
+        \, \leq \, 
+        \frac{(t_1-t_2)^2}{\sigma_{t\mid x}^2} \color{#C43424}{\left(\frac{R^2_{T\sim U|X}}{1 - R^2_{T\sim U|X}}
+        \right)} \parallel \Gamma_j\parallel_2^2$$
+:::
+
+- The bound on the bias for outcome $j$ is proportional to the norm of the factor loadings for that outcome
+
+- <span style="color:#C43424">A single sensitivity parameter, $\rsqtx$, shared across all outcomes</span>
+
+
+
+## Null Control Outcomes
+
+- Assume we have null control outcomes, $\mathcal{C}$
+- $\check \tau$ are the vector of PATEs under NUC
+- $\Gamma_{\mathcal{C}}$ are the factor loadings for the null control outcomes, $\mathcal{C}$ 
+
+. . .
+
+- Need at least $\rsqtx \geq R^2_{min}$ of the treatment variance to be due to confounding to nullify the null controls
+
+<!-- ::: {.callout-note icon=false} -->
+<!-- ## Proposition (Lower Bound on Confounding Strength with Null Controls) -->
+<!-- \begin{equation} -->
+<!--     R^2_{T \sim U | X} \geq R_{\text{min}}^2 := \frac{\sigma_{t\mid x}^2 \parallel  -->
+<!--     \Gamma_{\mathcal{C}}^{\dagger} \teNaiveNull \parallel_2^2}{1+\sigma_{t \mid x}^2 \parallel  -->
+<!--     \Gamma_{\mathcal{C}}^{\dagger} \teNaiveNull \parallel_2^2}, -->
+<!-- \end{equation} -->
+<!-- ::: -->
+
+
+ <!-- {visibility="uncounted"} -->
+
+## Null Control Outcomes
+
+::: {.callout-note icon=false}
+## Theorem (Bias with Null Control Outcomes)
+Assume the previous structural equation model and sensitivity specification.  Then the squared omitted variable bias for the PATE of outcome $Y_j$ is bounded by
+
+\begin{equation}
+    \label{eqn:ignorance-region-gaussian-wnc,multi-y}
+    \text{Bias}_j \in 
+    \left[\Gamma_j \Gamma_{\mathcal{C}}^{\dagger} \teNaiveNull
+    \; \pm \;
+    \parallel
+    \Gamma_j P_{\Gamma_{\mathcal{C}}}^{\perp} 
+    \parallel_2
+    \sqrt{
+    \frac{1}{\sigma_{t\mid x}^2}\left(
+    \frac{R^2_{T \sim U | X}}{1 - R^2_{T \sim U | X}} - 
+    \frac{R^2_{min}}{1 - R^2_{min}} 
+    \right)}
+\right],
+\end{equation}
+:::
+
+
+- If $R^2_{T \sim U | X}=R^2_{min}$ then the bias is identified for all outcomes
+
+- Ignorance about the bias is smallest when $\Gamma_j$ is close to the span of $\Gamma_{\mathcal{C}}$ 
+
+## Null Control Outcomes {visibility="uncounted"}
+
+::: {.callout-note icon=false}
+## Theorem (Bias with Null Control Outcomes)
+Assume the previous structural equation model and sensitivity specification.  Then the squared omitted variable bias for the PATE of outcome $Y_j$ is bounded by
+
+\begin{equation}
+    \text{Bias}_j \in 
+    \left[\Gamma_j \Gamma_{\mathcal{C}}^{\dagger} \teNaiveNull
+    \; \pm \;
+    \parallel
+    \Gamma_j P_{\Gamma_{\mathcal{C}}}^{\perp} 
+    \parallel_2
+    \sqrt{
+    \frac{1}{\sigma_{t\mid x}^2}\color{#C43424}{\left(
+    \frac{R^2_{T \sim U | X}}{1 - R^2_{T \sim U | X}} - 
+    \frac{R^2_{min}}{1 - R^2_{min}} 
+    \right)}}
+\right],
+\end{equation}
+:::
+
+
+- <span style="color:#C43424">If $R^2_{T \sim U | X}=R^2_{min}$ then the bias is identified for all outcomes</span>
+
+- Ignorance about the bias is smallest when $\Gamma_j$ is close to the span of $\Gamma_{\mathcal{C}}$ 
+
+## Null Control Outcomes {visibility="uncounted"}
+
+::: {.callout-note icon=false}
+## Theorem (Bias with Null Control Outcomes)
+Assume the previous structural equation model and sensitivity specification.  Then the squared omitted variable bias for the PATE of outcome $Y_j$ is bounded by
+
+\begin{equation}
+    \text{Bias}_j \in 
+    \left[\Gamma_j \Gamma_{\mathcal{C}}^{\dagger} \teNaiveNull
+    \; \pm \;
+    \color{#C43424}{\parallel
+    \Gamma_j P_{\Gamma_{\mathcal{C}}}^{\perp} 
+    \parallel_2}
+    \sqrt{
+    \frac{1}{\sigma_{t\mid x}^2}\left(
+    \frac{R^2_{T \sim U | X}}{1 - R^2_{T \sim U | X}} - 
+    \frac{R^2_{min}}{1 - R^2_{min}} 
+    \right)}
+\right],
+\end{equation}
+:::
+
+
+- If $R^2_{T \sim U | X}=R^2_{min}$ then the bias is identified for all outcomes
+
+- <span style="color:#C43424">Ignorance about the bias is smallest when $\Gamma_j$ is close to the span of $\Gamma_{\mathcal{C}}$ </span>
+
+## Robustness under Factor Confounding
+
+- $RV^\Gamma_j$ smallest value of $R^2_{T\sim U |X}$ needed to nullify the effect for outcome $j$ under factor confounding
+
+. . . 
+
+- $RV^\Gamma_j$ can be smaller or larger than $RV^1$
+
+- $RV_j^{\Gamma} \geq XRV$ by definition
+
+. . . 
+
+- $RV^\Gamma_{j, NC}$ smallest value of $R^2_{T\sim U |X}$ needed to nullify the effect for outcome $j$ and the assumed null controls
+
+
+## Simulation Study
+
+
+
+- Gaussian data generating process 
+\begin{align}
+T &= \beta' U + \epsilon_T \\
+Y_j &= \tau_jT + \Gamma'\Sigma^{-1/2}_{u|t}U + \epsilon_y
+\end{align}
+
+- $\rsqtx=0.5$ from $m=2$ unmeasured confounders
+
+- $\tau_j = 0$ for $Y_1$, $Y_2$ and $Y_{10}$ 
+
+- $\tau_j=1$ for all outher outcomes
+
+## Simulation Study
+
+- Fit a Bayesian linear regression on the 10 outcomes given then treatment
+
+- Assume a residual covariance with a rank-two factor structure
+
+- Plot ignorance regions assuming $R^2_{T \sim U} \leq 0.5$
+
+- Plot ignorance regions assuming $R^2_{T \sim U} \leq 0.5$ and $Y_1$ is null
+
+## Simulation Study
+
+:::{layout="[1.2, 4]" }
+![](gamma_plot) 
+
+![](nc_sim_plot_w_uncertainty3)
+:::
+
+---
+
+### The effects of light drinking {.smaller}
+
+- Measure ten different outcomes from blood samples: 
+  + natural: HDL, LDL, triglycerides, potassium, iron, sodium, glucose
+  + environmental toxicants: mercury, lead, cadmium.
+
+. . .
+
+- Measured confounders: age, gender and indicator for highest educational attainment
+
+. . .
+
+- Residual correlation in the outcomes might be indicative of additional confounding bias
+
+```{r}
+X <- read_csv("NHANES_predictors.csv") %>% as.matrix
+Y <- read_csv("NHANES_outcomes.csv") %>% as.matrix
+drinking <- X[, 1]
+X <- X[, -1]
+```
+
+## Aside: reparametrizing $R^2_{T \sim U | X}$
+
+- $R^2_{T \sim U | X}$ is unnatural for binary treatments
+
+- $\Lambda$-parameterization $\leftrightarrow$ $R^2_{T \sim U | X}$-parameterization
+
+. . .
+
+Fix a $\Lambda_\alpha$ such that
+$$Pr\left(\Lambda_\alpha^{-1} \leq \frac{e_0(X, U)/(1-e_0(X, U))}{e(X)/(1-e(X))}\leq \Lambda_\alpha\right)=1-\alpha$$ 
+
+- Related to the marginal sensitivity model [@tan2006distributional]
+
+## Benchmark Values
+
+- Use age, gender and an indicator of educational attainment to benchmark
+
+- $\frac{1}{3.5} \leq \text{Odds}(X)/\text{Odds}(X_{-age}) \leq 3.5$ for 95% of observed values
+
+- For gender and education indicators the odds change was between $\frac{1}{1.5}$ and $1.5$
+
+- Assume light drinking has no effect on methylmercury levels
+
+## Results: NHANES alcohol study
+
+<br>
+<br>
+
+::: {layout="[[1, 2]]"}
+![](nhanes_heat_rank_5.png)
+
+![](effect_intervals_weduc_2_odds_m5_new.png)
+:::
+
+
+
+
+<!-- ## Light Drinking -->
+
+<!-- ![](effect_intervals_weduc_2_odds_m5_new.png) -->
+
+## Takeaways
+
+- Prior knowledge unique to the multi-outcome setting can help inform assumptions about confounding
+
+- Sharper sensitivity analysis, when assumptions hold
+
+- Negative control assumptions can potentially provide strong evidence for or against robustness
+
+## Future directions
+
+- Identification with multiple treatments \emph{and} multiple outcomes 
+  + Collaboration on effects of pollutants on multiple heath outcomes
+  
+- Sensitivity analysis for more general models / forms of dependence.
+
+
+
+## References
+
+::: {#refs}
+:::
+
+## Thanks!
+:::: {.columns}
+
+::: {.column width="50%"}
+:::{layout="[[2, 2, 2]] " }
+![Jiaxi Wu (UCSB)](jiaxi)
+![Jiajing Zheng (formerly UCSB)](jzheng) 
+![Alex Damour (Google Research)](damour)
+:::
+:::
+
+::: {.column width="50%"}
+
+- Jiaxi Wu (top, UCSB)
+
+- Jiajing Zheng (middle, formerly UCSB)
+
+- Alex D'Amour (bottom, Google Research)
+
+**Preprint:** Sensitivity to Unobserved Confounding in Studies with Factor-structured Outcomes
+[https://arxiv.org/abs/2208.06552](https://arxiv.org/abs/2208.06552)
+:::
+::::
+
+
+
+
+
+

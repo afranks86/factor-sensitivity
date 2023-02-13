@@ -1,0 +1,22 @@
+/*-- scss:defaults --*/
+
+$body-bg: #fff;
+$body-color: #003660;
+$link-color: #047C91;
+$selection-bg: lighten(#FEBC11, 25%);
+$selection-color: #047C91;
+
+/*-- scss:rules --*/
+
+.title {
+  font-size: 60px !important;
+}
+
+.reveal .slide-number {
+  font-size: 24pt;
+  color: #003660; }
+
+.reveal .slide blockquote {
+  border-left: 3px solid $text-muted;
+  padding-left: 0.5em;
+}
