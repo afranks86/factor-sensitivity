@@ -5,23 +5,27 @@ Arxiv preprint: https://arxiv.org/abs/2208.06552
 Packages:
 All plots were generated using R version 4.2.2 (2022-10-31)
 
-| Package   |Version|
-|:----------|:------|
-|patchwork  |1.1.2  |
-|knitr      |1.41   |
-|mvtnorm    |1.1-3  |
-|colorspace |2.0-3  |
-|tidybayes  |3.0.2  |
-|cmdstanr   |0.5.3  |
-|forcats    |0.5.2  |
-|stringr    |1.5.0  |
-|dplyr      |1.0.10 |
-|purrr      |1.0.1  |
-|readr      |2.1.3  |
-|tidyr      |1.2.1  |
-|tibble     |3.1.8  |
-|ggplot2    |3.3.6  |
-|tidyverse  |1.3.2  |
+| Package   | Version |
+|:----------|:-------:|
+| patchwork |  1.1.2  |
+| knitr     |  1.41   |
+| mvtnorm   |  1.1-3  |
+| colorspace|  2.0-3  |
+| tidybayes |  3.0.2  |
+| cmdstanr  |  0.5.3  |
+
+| Package   | Version |
+|:----------|:-------:|
+| forcats   |  0.5.2  |
+| stringr   |  1.5.0  |
+| dplyr     | 1.0.10  |
+| purrr     |  1.0.1  |
+| readr     |  2.1.3  |
+| tidyr     |  1.2.1  |
+| tibble    |  3.1.8  |
+| ggplot2   |  3.3.6  |
+| tidyverse |  1.3.2  |
+
 
 
 ### Figures from the Main Paper
