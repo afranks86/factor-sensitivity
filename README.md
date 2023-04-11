@@ -56,9 +56,10 @@ Code to compute bounds and generate plots can be found in `utility_functions.R`.
 
 - ```compute_bounds_and_robustness```
 
-
 - ```get_beta_w_norm```
 
-- ```make_interval_plot```
+- ```compute_effect_intervals```
 
+- ```make_interval_plot```
+Function to generate Figures 2 and Appendix Figure 4.  Input: a 
 
