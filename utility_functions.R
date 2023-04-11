@@ -5,32 +5,11 @@ get_bounds <- function(df, data_list, treatment_index=1) {
   tibble(K=1:data_list$K, norm=nrms, beta=beta)
 }
 
-
-
-
-
 cal_rv_est <- function(beta, norm_beta) {
   w <- (sd(tr)*beta)^2 / norm_beta
   sign(beta)*w/(1+w)
   
 }
-
-pmist <- function(y, prob, mu=10, sigma) {
-    prob * VGAM::pfoldnorm(y, mu, sigma) + (1-prob) * VGAM::pfoldnorm(y, -1*mu, sigma)
-}
-
-qmist2n = function(q, mu=10, sigma=1, prob){
-  # the min minmax below is computed to supply a range to the solver
-  # the solution must be between the min and max
-  # quantile of the mixed distributions
-
-  minmax <- range(VGAM::qfoldnorm(q, mu, sigma), VGAM::qfoldnorm(q, -mu, sigma))
-  uniroot(function(x) pmist(x, prob, mu, sigma) - q,
-                interval = minmax,
-                tol = 10^{-16})$root  
-
-} #qmist2n
-
 
 ## get odds ratio distribution
 r2_to_odds <- function(r2, probs=NULL, alpha=0.95) {
@@ -46,14 +25,22 @@ r2_to_odds <- function(r2, probs=NULL, alpha=0.95) {
     if(is.nan(mu_lambda[i]))
       NaN
     else {
-      # browser()
-      #qmist2n(alpha, mu_lambda[i], sigma_lambda[i], prob)
       VGAM::qfoldnorm(alpha, mu_lambda[i], sigma_lambda[i])
     }
   })
   
   odds_ratio <- exp(qalpha)
   odds_ratio
+}
+
+## get odds ratio distribution
+odds_to_r2 <- function(odds, probs=NULL, alpha=0.95) {
+  
+  r2 <- sapply(1:length(odds), function(i) {
+    uniroot(function(x) r2_to_odds(x, probs=probs, alpha=alpha) - odds,
+      interval=c(0.001, 0.1))$root
+  })
+  r2
 }
 
 compute_bounds_and_robustness <- function(df, R2_no_nc=0.0, R2_nc=R2_no_nc, NC_index, data_list=data_list, 

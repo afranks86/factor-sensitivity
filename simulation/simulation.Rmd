@@ -1,26 +1,34 @@
 ---
 title: "Simulation with Null Controls"
-author: "Alex Franks"
-date: 
-output: html_document
+date: "`r format(Sys.time(), '%d/%m/%y')`"
+output: pdf_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = FALSE)
 library(tidyverse)
 library(colorspace)
 library(tidybayes)
 library(cmdstanr)
+library(mvtnorm)
+library(knitr)
 options(mc.cores=4)
 source("../utility_functions.R")
 ```
 
-## Generate simulated data
-
-- $q=10$ outcomes, $m=2$ latent confounders.  Confounding explains 50\% of the treatment variance
-- Make a heat map of gamma (paper Figure ***)
+# List packages used, generate simulated data
 
 ```{r}
+R.Version()$version.string
+
+print("Package versions:")
+installed.packages()[names(sessionInfo()$otherPkgs), "Version"] %>% kable()
+```
+
+Generate data for $q=10$ outcomes, $m=2$ latent confounders.  Confounding explains 50\% of the treatment variance
+
+```{r generate_data}
+
 # model #
 R2 <- 0.5
 q <- 10
@@ -61,15 +69,18 @@ colnames(y) = paste0("y", 1:q)
 ## tau_naive <- colMeans(y[t==1, ]) - colMeans(y[t==0, ])
 tau_naive <- coef(lm(y ~ t))["t", ]
 
-tau_naive
-tau_naive - t(B) %*% sigma_u_t_neg_half %*% t(gamma0) /sigma2_t
+print("Naive effects (midpoint of ignorance region):")
+tau_naive %>% knitr::kable(digits=2)
+
 data_list <- list(K=ncol(y), J=1, N=nrow(y), M=2, x=matrix(t, ncol=1), y=scale(y))
 
 sm <- cmdstanr::cmdstan_model("../stan/multivariate_regression.stan")
+```
 
+\newpage
 
-
-
+# Make a heat map of gamma (paper Figure 1a)
+```{r dependson="generate_data"}
 tibble(expand.grid(outcome=1:10, col=1:2)) %>% 
   mutate(Value = as.numeric(gamma0)) %>%  
   ggplot(aes(x=col, y=forcats::fct_rev(as.factor(outcome)))) + 
@@ -90,36 +101,38 @@ ggsave("gamma_plot.pdf", height=5, width=3)
 
 ```
 
-## Inference
+# Run MCMC to Infer Naive Effects and Factor Loadings
+Print credible intervals for effects under NUC and report significance
+```{r inference, dependson="generate_data", warning=FALSE}
+## By default, don't run sampler, just load last fit
+run_sampler <- FALSE
 
-```{r}
-
-## By default, don't run sampler
-run_sampler <- TRUE
-
-
+## Rank 2 fit
 if(run_sampler) {
  stan_results <- stan_results <- sm$sample(data_list)
- saveRDS(stan_results, file="simulation_1000_2_gauss_2.RDS")
+ stan_results$save_object(file="simulation_1000_2_gauss_2.RDS")
 } else {
   stan_results <- readRDS("simulation_1000_2_gauss_2.RDS")
 }
 
 naive_estimates <- stan_results %>% spread_draws(beta[K, J]) %>% 
   group_by(J, K) %>% 
-  summarize(q025=quantile(beta, 0.025), 
-            q975=quantile(beta, 0.975)) %>%
+  summarize(
+    mean = mean(beta),
+    q025=quantile(beta, 0.025), 
+    q975=quantile(beta, 0.975)) %>%
   mutate(sig = sign(q025*q975)==1) %>% 
   mutate(feature = colnames(y)) %>% 
   filter(J==1) %>% 
-  arrange(desc(q025)) %>% relocate(feature, q025, q975)
-naive_estimates
+  relocate(feature, q025, q975)
 
+## Print table of naive estimates
+naive_estimates %>% knitr::kable(digits=2)
 
 sdy <- attr(scale(y), "scaled:scale")
 muy <- attr(scale(y), "scaled:center")
 
-
+## Which is the Null Control
 NC_index <- 1
 R2 <- 0.5
 tr <- t
@@ -128,22 +141,22 @@ beta_w_norm <- get_beta_w_norm(stan_results, data_list, NC_index=NC_index,
                                R2_no_nc=R2, R2_nc = R2, sdy=sdy)
 
 
-
 orig_color = "#023FA5"
 orig_color = "black"
 nc_color = "#CC1C2F"
 effect_intervals <- beta_w_norm %>% 
-  group_by(K) %>% summarize(lower_naive=quantile(Naive, 0.025, na.rm=TRUE),
-                            upper_naive=quantile(Naive, 0.975, na.rm=TRUE),
-                            lower_init=quantile(R2_lwr, 0.025, na.rm=TRUE),
-                            upper_init=quantile(R2_upr, 0.975, na.rm=TRUE),
-                            lower_nc=quantile(R2_nc_lwr, 0.025, na.rm=TRUE),
-                            upper_nc=quantile(R2_nc_upr, 0.975, na.rm=TRUE),
-                            lower_rv_init = quantile(abs(rv_init), 0.05, na.rm=TRUE),
-                            lower_rv_nc = quantile(abs(rv_nc), 0.05, na.rm=TRUE), 
-                            lower_rv_nc_cond = quantile(abs(rv_nc_cond), 0.05, na.rm=TRUE),                             
-                            lower_rv_ch = quantile(abs(rv_ch), 0.05, na.rm=TRUE),
-                            lower_xrv = quantile(abs(xrv), 0.05, na.rm=TRUE)) %>% 
+  group_by(K) %>% 
+  summarize(lower_naive=quantile(Naive, 0.025, na.rm=TRUE),
+            upper_naive=quantile(Naive, 0.975, na.rm=TRUE),
+            lower_init=quantile(R2_lwr, 0.025, na.rm=TRUE),
+            upper_init=quantile(R2_upr, 0.975, na.rm=TRUE),
+            lower_nc=quantile(R2_nc_lwr, 0.025, na.rm=TRUE),
+            upper_nc=quantile(R2_nc_upr, 0.975, na.rm=TRUE),
+            lower_rv_init = quantile(abs(rv_init), 0.05, na.rm=TRUE),
+            lower_rv_nc = quantile(abs(rv_nc), 0.05, na.rm=TRUE), 
+            lower_rv_nc_cond = quantile(abs(rv_nc_cond), 0.05, na.rm=TRUE),
+            lower_rv_ch = quantile(abs(rv_ch), 0.05, na.rm=TRUE),
+            lower_xrv = quantile(abs(xrv), 0.05, na.rm=TRUE)) %>% 
   mutate(K = as.character(1:10))
 
 nc_plot_index <- which(effect_intervals$K %in% c(1))  
@@ -154,7 +167,10 @@ rv_nc <- format(rv_nc, nsmall=2)
 
 text_diff <- c(0, 0.35, 0.6, 0.85)
 text_loc <- 2.1 + text_diff
+```
 
+# Ignorance Regions, Paper Figure 1b
+```{r plot_regions, dependson="inference"}
 nc_bayes_plot <- effect_intervals %>%
   ggplot() + 
   geom_segment(aes(x=forcats::fct_inorder(K), xend=forcats::fct_inorder(K), 

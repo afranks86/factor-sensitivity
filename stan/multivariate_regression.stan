@@ -3,8 +3,8 @@ data {
   int<lower=1> J;
   int<lower=0> N;
   int<lower=1> M; 
-  vector[J] x[N];
-  vector[K] y[N];
+  array[N] vector[J] x;
+  array[N] vector[K] y;
   
 }
 parameters {
@@ -20,7 +20,7 @@ transformed parameters {
   cov_matrix[K] Sigma_inv = lambda_inv - lambda_inv * B * inverse_spd(diag_matrix(rep_vector(1, M)) +  B' * lambda_inv * B) * B' * lambda_inv;
 }
 model {
-  vector[K] mu[N];
+  array[N] vector[K] mu;
   
   for(k in 1:K) {
     for(m in 1:M) {
