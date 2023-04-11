@@ -21,7 +21,7 @@ All plots were generated using R version 4.2.2 (2022-10-31)
 | doParallel | 1.0.17|
 | iterators | 1.0.14|
 | foreach | 1.5.2 |
-|rstiefel | 1.0.1 |
+
   
   </td><td>
 
@@ -36,6 +36,7 @@ All plots were generated using R version 4.2.2 (2022-10-31)
 | tibble    |  3.1.8  |
 | ggplot2   |  3.3.6  |
 | tidyverse |  1.3.2  |
+ |rstiefel | 1.0.1 |
 
   </td></tr> </table>
 
