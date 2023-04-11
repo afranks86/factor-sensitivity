@@ -2,6 +2,7 @@
 Code from the paper "Sensitivity to Unobserved Confounding in Studies with Factor-structured Outcomes"
 Arxiv preprint: https://arxiv.org/abs/2208.06552
 
+We propose an approach for assessing sensitivity to unobserved confounding in studies with multiple outcomes. We demonstrate how prior knowledge unique to the multi-outcome setting can be leveraged to strengthen causal conclusions beyond what can be achieved from analyzing individual outcomes in isolation. We argue that it is often reasonable to make a shared confounding assumption, under which residual dependence amongst outcomes can be used to simplify and sharpen sensitivity analyses. We focus on a class of factor models for which we can bound the causal effects for all outcomes conditional on a single sensitivity parameter that represents the fraction of treatment variance explained by unobserved confounders. We characterize how causal ignorance regions shrink under additional prior assumptions about the presence of null control outcomes, and provide new approaches for quantifying the robustness of causal effect estimates. Finally, we illustrate our sensitivity analysis workflow in practice, in an analysis of both simulated data and a case study with data from the National Health and Nutrition Examination Survey (NHANES).
 
 **All plots were generated using R version 4.2.2 (2022-10-31)**
 
