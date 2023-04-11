@@ -5,6 +5,10 @@ Arxiv preprint: https://arxiv.org/abs/2208.06552
 Packages:
 All plots were generated using R version 4.2.2 (2022-10-31)
 
+<table>
+<tr><th>Table 1 Heading 1 </th><th>Table 1 Heading 2</th></tr>
+<tr><td>
+
 | Package   | Version |
 |:----------|:-------:|
 | patchwork |  1.1.2  |
@@ -13,6 +17,8 @@ All plots were generated using R version 4.2.2 (2022-10-31)
 | colorspace|  2.0-3  |
 | tidybayes |  3.0.2  |
 | cmdstanr  |  0.5.3  |
+  
+  </td><td>
 
 | Package   | Version |
 |:----------|:-------:|
@@ -26,6 +32,7 @@ All plots were generated using R version 4.2.2 (2022-10-31)
 | ggplot2   |  3.3.6  |
 | tidyverse |  1.3.2  |
 
+  </td></tr> </table>
 
 
 ### Figures from the Main Paper
