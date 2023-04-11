@@ -53,3 +53,12 @@ Appendix Tables 1 and 2 and Appendix Figures 3 and 4 are both included in `NHANE
 
 ### General functions
 Code to compute bounds and generate plots can be found in `utility_functions.R`.  These functions are called from both Rmds.  We briefly describe some of these core functions here.
+
+- ```compute_bounds_and_robustness```
+
+
+- ```get_beta_w_norm```
+
+- ```make_interval_plot```
+
+
