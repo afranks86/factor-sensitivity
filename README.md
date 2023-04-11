@@ -2,8 +2,8 @@
 Code from the paper "Sensitivity to Unobserved Confounding in Studies with Factor-structured Outcomes"
 Arxiv preprint: https://arxiv.org/abs/2208.06552
 
-Packages:
-All plots were generated using R version 4.2.2 (2022-10-31)
+
+**All plots were generated using R version 4.2.2 (2022-10-31)**
 
 <table>
 <tr><th> </th><th></th></tr>
