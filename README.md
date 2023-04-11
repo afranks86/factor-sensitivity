@@ -6,7 +6,7 @@ Packages:
 All plots were generated using R version 4.2.2 (2022-10-31)
 
 <table>
-<tr><th>Table 1 Heading 1 </th><th>Table 1 Heading 2</th></tr>
+<tr><th> </th><th></th></tr>
 <tr><td>
 
 | Package   | Version |
@@ -17,6 +17,11 @@ All plots were generated using R version 4.2.2 (2022-10-31)
 | colorspace|  2.0-3  |
 | tidybayes |  3.0.2  |
 | cmdstanr  |  0.5.3  |
+| loo | 2.5.1 |
+| doParallel | 1.0.17|
+| iterators | 1.0.14|
+| foreach | 1.5.2 |
+|rstiefel | 1.0.1 |
   
   </td><td>
 
