@@ -57,7 +57,7 @@ Code to compute bounds and generate plots can be found in `utility_functions.R`.
 - ```compute_bounds_and_robustness```
 Input: dataframe including point estimates, beta (naive effects) and Gamma (factor loadings)
 Return: Naive effect, bound on causal effect for given strength of confounding, with and with null control.
-Can return robustness in R2 or Lambda parameterization.  Computes bounds based on Theorem ** and Theorem **.
+Can return robustness in R2 or Lambda parameterization.  Computes bounds based on Theorem 1 and Theorem 2 as well as robustness values (Theorem 3).
 
 - ```get_beta_w_norm```
 Returns a data frame with xxxx
