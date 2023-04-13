@@ -51,7 +51,7 @@ We propose an approach for assessing sensitivity to unobserved confounding in st
 
 Appendix Tables 1 and 2 and Appendix Figures 3 and 4 are both included in `NHANES_analysis/NHANES_analysis.Rmd`.
 
-### General functions
+### Important functions
 Code to compute bounds and generate plots can be found in `utility_functions.R`.  These functions are called from both Rmds.  We briefly describe some of these core functions here.
 
 - ```compute_bounds_and_robustness```
