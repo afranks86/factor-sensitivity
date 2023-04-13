@@ -59,7 +59,6 @@ Code to compute bounds and generate plots can be found in `utility_functions.R`.
 - ```get_beta_w_norm```
 
 - ```compute_effect_intervals```
-- Compute intervals
 Returns endpoints of 95% credible intervals for causal effects under NUC,
 endpoints of 95% credible intervals for causal effects under the null control assumption
 and all robustness in both r2 and lambda parameterizations
