@@ -259,10 +259,21 @@ foreach(m = 1:6) %dopar% {
 }
 sm_full <- cmdstanr::cmdstan_model("../stan/multivariate_regression_full_cov.stan")
 data_list <- list(K = ncol(Y), J = ncol(X), N = nrow(Y), x = X, y = scale(Y))
+## For full rank initialize with vb
+vb_res <- sm_full$variational(data=data_list, iter=20000)
+draws_df <- vb_res$draws()
+vb_init <- lapply(1:4, function(chain) {
+    sapply(c('alpha','beta','L_sigma','L_Omega'),
+    function(variable) {as.numeric(subset(draws_df, variable=variable) %>% as_tibble() %>% sample_n(size=1))})
+    }
+)
+
 stan_results <- sm_full$sample(
   data = data_list, chains = 4,
-  cores = 4, max_treedepth = 15, adapt_delta = 0.95
+  init = vb_init,
+  parallel_chains = 4, max_treedepth = 12, adapt_delta = 0.95
 )
+
 stan_results$save_object(file = "drinking_samples_weduc_full_rank.RDS")
 
 stopCluster(cluster)
@@ -306,13 +317,14 @@ r2_benchmark <- age_benchmark
 r2y <- rep(NA, 10)
 NC_index <- 2
 
-beta_w_norm <- get_beta_w_norm(stan_results, data_list,
+bounds_and_robustness_samples <- get_bounds_and_robustness_samples(
+  stan_results, data_list,
   NC_index = NC_index,
   probs = preds_full, full_rank = FALSE,
   R2_no_nc = r2_benchmark, R2_nc = 0.0,
   r2y = r2y
 )
-effect_intervals <- compute_effect_intervals(beta_w_norm)
+effect_intervals <- compute_effect_intervals(bounds_and_robustness_samples)
 
 nc_plot_index <- which(effect_intervals$K %in% c(NC_index))
 make_interval_plot(effect_intervals,
@@ -331,7 +343,8 @@ plt +
     ),
     values = c(nuc = "black", rect = "black", "null" = "#CC1C2F")
   ) +
-  theme(legend.key = element_rect(color = c(NA, "black", NA), fill = c(NA, NA, NA)))
+  theme(legend.key = element_rect(color = c(NA, "black", NA), fill = c(NA, NA, NA))) +
+  guides(color = guide_legend(override.aes = list(linetype = c(0, 1, 1))))
 
 ggsave(file = sprintf("effect_intervals_weduc_%s_odds_m%i_new.pdf", paste(NC_index, collapse = "_"), m), width = 10, height = 5)
 ```
@@ -343,17 +356,17 @@ NC_index <- 2
 r2y <- rep(NA, 10)
 r2y[2] <- 1
 
-beta_w_norm <- get_beta_w_norm(stan_results, data_list,
+bounds_and_robustness_samples <- get_bounds_and_robustness_samples(stan_results, data_list,
   NC_index = NC_index,
   probs = preds_full, full_rank = TRUE,
   R2_no_nc = r2_benchmark, R2_nc = 0.0,
   r2y = r2y
 )
-effect_intervals <- compute_effect_intervals(beta_w_norm)
+effect_intervals <- compute_effect_intervals(bounds_and_robustness_samples)
 nc_plot_index <- which(effect_intervals$K %in% c(NC_index))
 make_interval_plot(effect_intervals,
   nc_plot_index = nc_plot_index,
-  title = expression(R[Y ~ "~" ~ "U|X"]^2 ~ "=1 for methylmercury"),
+  title = expression(R[Y ~ "~" ~ "U|T, X"]^2 ~ "=1 for methylmercury"),
   labels = c("NUC", expression(Lambda[0.95] ~ "=" ~ Lambda[min]))
 ) -> plt
 
@@ -366,7 +379,7 @@ plt +
     ),
     values = c(nuc = "black", rect = "black", "null" = "#CC1C2F")
   ) +
-  theme(legend.key = element_rect(color = c(NA, "black", NA), fill = c(NA, NA, NA)))
+  theme(legend.key = element_rect(color = c(NA, "black", NA), fill = c(NA, NA, NA))) 
 
 ggsave(file = sprintf("effect_intervals_%s_odds_m%i_null_r2y1.pdf", paste(NC_index, collapse = "_"), m), width = 10, height = 5)
 ```
@@ -403,6 +416,7 @@ loo_results <- lapply(1:6, function(i) {
 })
 names(loo_results) <- paste0("rank", 1:6)
 
+
 ## Add full rank
 model_res <- readRDS(file = sprintf("drinking_samples_weduc_full_rank.RDS"))
 loo_results[["full_rank"]] <- model_res$loo()
@@ -417,25 +431,25 @@ comp[, 1:2] %>% knitr::kable(format = "pandoc", digits = 2)
 # Gamma heat map: Figure 3 (Appendix)
 ```{r}
 
-## Compute posterior mean of gamma (gamma is "B" in stan)
+## Compute posterior mean of gamma 
 stan_results %>%
-  spread_draws(B[K, M], lambda[K]) %>%
-  nest(data = c(B, K, M, lambda)) %>%
+  spread_draws(Gamma[K, M], lambda[K]) %>%
+  nest(data = c(Gamma, K, M, lambda)) %>%
   {
     map(.$data, function(x) {
-      B <- matrix(x$B, nrow = max(x$K), ncol = max(x$M), byrow = TRUE)
+      Gamma <- matrix(x$Gamma, nrow = max(x$K), ncol = max(x$M), byrow = TRUE)
       lambda <- x %>%
         filter(M == 1) %>%
         pull(lambda) %>%
         diag()
 
-      B %*% t(B)
+      Gamma %*% t(Gamma)
     })
-  } -> BBlist
+  } -> GGlist
 
-eig <- eigen(Reduce("+", BBlist) / 4000)
+eig <- eigen(Reduce("+", GGlist) / length(GGlist))
 
-summary(sapply(BBlist, function(x) cov2cor(x)[1, 2]))
+summary(sapply(GGlist, function(x) cov2cor(x)[1, 2]))
 
 gamma_cols <- data_list$M # data_list$K
 gamma_init <- eig$vectors[, 1:gamma_cols] %*% sqrt(diag(eig$values[1:gamma_cols]))

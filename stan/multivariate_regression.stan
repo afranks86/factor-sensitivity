@@ -11,20 +11,20 @@ parameters {
   vector[K] alpha;
   matrix[K, J] beta;
   
-  matrix[K, M] B; //
+  matrix[K, M] Gamma; //
   vector<lower=0>[K] lambda;
   real<lower=0> lambda_mean;
 }
 transformed parameters {
   matrix[K, K] lambda_inv = diag_matrix(1.0 ./ lambda);
-  cov_matrix[K] Sigma_inv = lambda_inv - lambda_inv * B * inverse_spd(diag_matrix(rep_vector(1, M)) +  B' * lambda_inv * B) * B' * lambda_inv;
+  cov_matrix[K] Sigma_inv = lambda_inv - lambda_inv * Gamma * inverse_spd(diag_matrix(rep_vector(1, M)) +  Gamma' * lambda_inv * Gamma) * Gamma' * lambda_inv;
 }
 model {
   array[N] vector[K] mu;
   
   for(k in 1:K) {
     for(m in 1:M) {
-      B[k, m] ~ normal(0, 1);
+      Gamma[k, m] ~ normal(0, 1);
     }
     
     for(j in 1:J) {

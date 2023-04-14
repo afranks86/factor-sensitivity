@@ -2,8 +2,8 @@ data {
   int<lower=1> K;
   int<lower=1> J;
   int<lower=0> N;
-  vector[J] x[N];
-  vector[K] y[N];
+  array[N] vector[J] x;
+  array[N] vector[K] y;
   
 }
 parameters {
@@ -16,7 +16,7 @@ parameters {
   matrix[K, K] L_Sigma = diag_pre_multiply(L_sigma, L_Omega);
 }
 model {
-  vector[K] mu[N];
+  array[N] vector[K] mu;
   
   
   for(k in 1:K) {
@@ -27,8 +27,8 @@ model {
   
   alpha ~ normal(0, 1);
   
-  L_Omega ~ lkj_corr_cholesky(4);
-  L_sigma ~ normal(0, 1);
+  L_Omega ~ lkj_corr_cholesky(1);
+  L_sigma ~ cauchy(0, 1);
   
   for (n in 1:N)
     mu[n] = alpha + beta * x[n];

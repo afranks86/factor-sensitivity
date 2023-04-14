@@ -36,8 +36,8 @@ m <- 2
 sigma2_t <- 1
 R2 <- 0.5
 set.seed(123)
-B <- rstiefel::rustiefel(m, 1) * sqrt(sigma2_t * R2)
-B[2] <- -B[2]
+Gamma <- rstiefel::rustiefel(m, 1) * sqrt(sigma2_t * R2)
+Gamma[2] <- -Gamma[2]
 sigma2_y <- diag(q)
 
 n = 1000
@@ -54,10 +54,10 @@ gamma0[2, ] <- -1*gamma0[2, ]
 gamma0[10, ] <- -1*gamma0[10, ]
 
 u <- sapply(t, function(ti) {
-    mvtnorm::rmvnorm(1, mean=B / sigma2_t * ti, sigma=diag(1, m) - B %*% t(B) / sigma2_t)
+    mvtnorm::rmvnorm(1, mean=Gamma / sigma2_t * ti, sigma=diag(1, m) - Gamma %*% t(Gamma) / sigma2_t)
 }) %>% t
 
-sigma_u_t_neg_half <- chol(solve(diag(m) - B %*% t(B) / sigma2_t))
+sigma_u_t_neg_half <- chol(solve(diag(m) - Gamma %*% t(Gamma) / sigma2_t))
 
 mu_yt <- c(0, 0, 1, rep(1, q-4), 0)  #rnorm(q)
 
@@ -136,15 +136,16 @@ muy <- attr(scale(y), "scaled:center")
 NC_index <- 1
 R2 <- 0.5
 tr <- t
-beta_w_norm <- get_beta_w_norm(stan_results, data_list, NC_index=NC_index, 
-                               marginal_sensitivity_param = FALSE, 
-                               R2_no_nc=R2, R2_nc = R2, sdy=sdy)
+bounds_and_robustness_samples <- get_bounds_and_robustness_samples(
+  stan_results, data_list, NC_index=NC_index, 
+  marginal_sensitivity_param = FALSE, 
+  R2_no_nc=R2, R2_nc = R2, sdy=sdy)
 
 
 orig_color = "#023FA5"
 orig_color = "black"
 nc_color = "#CC1C2F"
-effect_intervals <- beta_w_norm %>% 
+effect_intervals <- bounds_and_robustness_samples %>% 
   group_by(K) %>% 
   summarize(lower_naive=quantile(Naive, 0.025, na.rm=TRUE),
             upper_naive=quantile(Naive, 0.975, na.rm=TRUE),
