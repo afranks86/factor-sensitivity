@@ -59,8 +59,8 @@ Input: dataframe including point estimates, beta (naive effects) and Gamma (fact
 Return: Naive effect, bound on causal effect for given strength of confounding, with and with null control.
 Can return robustness in R2 or Lambda parameterization.  Computes bounds based on Theorem 1 and Theorem 2 as well as robustness values (Theorem 3).
 
-- ```get_beta_w_norm```
-Returns a data frame with xxxx
+- ```get_bounds_and_robustness_samples```
+Returns a data frame with naive effects, bounds and robustness values per mcmc sample.
 Input: Stan samples, data, index of the null control, index of the treatment.  Calls ```compute_bounds_and_robustness``` per MCMC sample.
 
 - ```compute_effect_intervals```
