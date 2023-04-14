@@ -51,14 +51,22 @@ We propose an approach for assessing sensitivity to unobserved confounding in st
 
 Appendix Tables 1 and 2 and Appendix Figures 3 and 4 are both included in `NHANES_analysis/NHANES_analysis.Rmd`.
 
-### General functions
+### Important functions
 Code to compute bounds and generate plots can be found in `utility_functions.R`.  These functions are called from both Rmds.  We briefly describe some of these core functions here.
 
 - ```compute_bounds_and_robustness```
+Input: dataframe including point estimates, beta (naive effects) and Gamma (factor loadings)
+Return: Naive effect, bound on causal effect for given strength of confounding, with and with null control.
+Can return robustness in R2 or Lambda parameterization.  Computes bounds based on Theorem 1 and Theorem 2 as well as robustness values (Theorem 3).
 
-- ```get_beta_w_norm```
+- ```get_bounds_and_robustness_samples```
+Returns a data frame with naive effects, bounds and robustness values per mcmc sample.
+Input: Stan samples, data, index of the null control, index of the treatment.  Calls ```compute_bounds_and_robustness``` per MCMC sample.
 
 - ```compute_effect_intervals```
+Returns endpoints of 95% credible intervals for causal effects under NUC,
+endpoints of 95% credible intervals for causal effects under the null control assumption
+and all robustness in both r2 and lambda parameterizations
 
 - ```make_interval_plot```
 Function to generate Figures 2 and Appendix Figure 4.  Input: a 
