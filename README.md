@@ -69,5 +69,6 @@ endpoints of 95% credible intervals for causal effects under the null control as
 and all robustness in both r2 and lambda parameterizations
 
 - ```make_interval_plot```
-Function to generate Figures 2 and Appendix Figure 4.  Input: a 
+Function to generate Figures 2 and Appendix Figure 4.  
+Input: 
 
