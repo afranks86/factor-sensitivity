@@ -70,5 +70,5 @@ and all robustness in both r2 and lambda parameterizations
 
 - ```make_interval_plot```
 Function to generate Figures 2 and Appendix Figure 4.  
-Input: 
+Input: effect intervals data frame as returned by `compute_effect_intervals`
 
